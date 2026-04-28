@@ -1,27 +1,10 @@
 import { useState, useEffect, useCallback } from "react";
+import PUZZLES from "../puzzles.js";
 
-/* ── PUZZLE DATA ── */
-const ALL_MOVIES = [
-  { id: 0,  title: "Raiders of the Lost Ark", row: 0, isCol: true  },
-  { id: 1,  title: "Die Hard",                row: 0, isCol: false },
-  { id: 2,  title: "Mad Max: Fury Road",      row: 0, isCol: false },
-  { id: 3,  title: "The Dark Knight",         row: 0, isCol: false },
-  { id: 4,  title: "E.T.",                    row: 1, isCol: true  },
-  { id: 5,  title: "Interstellar",            row: 1, isCol: false },
-  { id: 6,  title: "Blade Runner 2049",       row: 1, isCol: false },
-  { id: 7,  title: "Arrival",                 row: 1, isCol: false },
-  { id: 8,  title: "Saving Private Ryan",     row: 2, isCol: true  },
-  { id: 9,  title: "Apocalypse Now",          row: 2, isCol: false },
-  { id: 10, title: "Full Metal Jacket",       row: 2, isCol: false },
-  { id: 11, title: "1917",                    row: 2, isCol: false },
-  { id: 12, title: "Schindler's List",        row: 3, isCol: true  },
-  { id: 13, title: "The King's Speech",       row: 3, isCol: false },
-  { id: 14, title: "Bohemian Rhapsody",       row: 3, isCol: false },
-  { id: 15, title: "The Imitation Game",      row: 3, isCol: false },
-];
-
-const ROW_THEMES = ["Action / Adventure","Science Fiction","War","Historical Drama"];
-const COL_THEME = "Directed by Steven Spielberg";
+/* ── PUZZLE LOOKUP ── */
+const TODAY = new Date().toISOString().slice(0, 10);
+const { movies: ALL_MOVIES, rowThemes: ROW_THEMES, colTheme: COL_THEME, num: PUZZLE_NUM } =
+  PUZZLES[TODAY]?.crosscut ?? PUZZLES[Object.keys(PUZZLES).sort().at(-1)].crosscut;
 
 function shuffle(arr) {
   const a = [...arr];
@@ -490,13 +473,13 @@ export default function Crosscut({ onBack }) {
   const [timer, setTimer]           = useState(0);
   const [moves, setMoves]           = useState(0);
   const [won, setWon]               = useState(false);
-  const [showHelp, setShowHelp]     = useState(true);
+  const [showHelp, setShowHelp]     = useState(false);
   const [copied, setCopied]         = useState(false);
   const [pulsingIdxs, setPulsingIdxs] = useState([]);
   const [hintsLeft, setHintsLeft]   = useState(3);
 
   useEffect(() => {
-    if (won || showHelp) return;
+    if (won) return;
     const t = setInterval(() => setTimer(s => s + 1), 1000);
     return () => clearInterval(t);
   }, [won, showHelp]);
@@ -575,7 +558,7 @@ export default function Crosscut({ onBack }) {
   function copyResult() {
     const rowEmojis = solvedRows.map(s => s ? "🟩" : "⬛");
     const colEmoji  = solvedCol !== null ? "🟨" : "⬛";
-    const text = `🎬 Marquee — Crosscut #1\n⏱ ${fmtTime(timer)}  🎬 ${moves} moves\n${rowEmojis.join("")}${colEmoji}`;
+    const text = `🎬 Marquee — Crosscut #${PUZZLE_NUM}\n⏱ ${fmtTime(timer)}  🎬 ${moves} moves\n${rowEmojis.join("")}${colEmoji}`;
     navigator.clipboard.writeText(text).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2500); });
   }
 

@@ -332,6 +332,20 @@ const STYLE = `
 
   .mq-play-btn:hover svg { transform: translateX(2px); }
 
+  .mq-how-btn {
+    background: transparent;
+    border: none;
+    padding: 8px 10px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 12px;
+    color: var(--text2);
+    cursor: pointer;
+    transition: color 0.2s;
+    letter-spacing: 0.3px;
+  }
+
+  .mq-how-btn:hover { color: var(--cream); }
+
   .mq-card.featured .mq-play-btn {
     border-color: var(--gold-dim);
     color: var(--gold);
@@ -684,7 +698,7 @@ export default function MarqueeHome({ onPlay }) {
             <div
               key={g.id}
               className={`mq-card ${g.featured ? "featured" : ""}`}
-              onClick={() => setSheet(g)}
+              onClick={() => onPlay(g.id)}
             >
               <div className="mq-card-bg">{g.bg}</div>
 
@@ -710,10 +724,15 @@ export default function MarqueeHome({ onPlay }) {
                     </div>
                   ))}
                 </div>
-                <button className="mq-play-btn" onClick={(e) => { e.stopPropagation(); onPlay(g.id); }}>
-                  Play
-                  <svg viewBox="0 0 10 10"><polygon points="2,1 9,5 2,9" /></svg>
-                </button>
+                <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                  <button className="mq-how-btn" onClick={(e) => { e.stopPropagation(); setSheet(g); }}>
+                    How to Play
+                  </button>
+                  <button className="mq-play-btn" onClick={(e) => { e.stopPropagation(); onPlay(g.id); }}>
+                    Play
+                    <svg viewBox="0 0 10 10"><polygon points="2,1 9,5 2,9" /></svg>
+                  </button>
+                </div>
               </div>
             </div>
           ))}

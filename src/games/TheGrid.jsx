@@ -1,31 +1,10 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import PUZZLES from "../puzzles.js";
 
-/* ── PUZZLE DATA ── */
-const PUZZLE = {
-  num: 1,
-  actors: ["Tom Hanks", "Leonardo DiCaprio", "Meryl Streep"],
-  categories: [
-    { label: "Set Outside the USA", icon: "✈" },
-    { label: "Based on a True Story", icon: "📖" },
-    { label: "Single-Word Title", icon: "✦" },
-  ],
-  valid: [
-    [new Set(["cast away","captain phillips","the terminal","charlie wilson's war","road to perdition"]),
-     new Set(["sully","captain phillips","philadelphia","saving private ryan"]),
-     new Set(["philadelphia","castaway","elvis"])],
-    [new Set(["the aviator","the beach","the man in the iron mask","titanic","romeo + juliet","inception"]),
-     new Set(["the aviator","titanic","the revenant","j. edgar","catch me if you can","the wolf of wall street"]),
-     new Set(["inception","titanic","aviator","interstellar","rebecca"])],
-    [new Set(["out of africa","mamma mia!","the iron lady","adaptation","the hours"]),
-     new Set(["the iron lady","florence foster jenkins","silkwood","adaptation","julie & julia"]),
-     new Set(["kramer","adaptation","doubt","carol","manhattan"])],
-  ],
-  rarityMap: {
-    "sully": 2, "captain phillips": 2, "the aviator": 2, "inception": 1,
-    "titanic": 1, "out of africa": 2, "the iron lady": 2, "adaptation": 3,
-    "doubt": 3, "carol": 3, "cast away": 1, "philadelphia": 2,
-  },
-};
+/* ── PUZZLE LOOKUP ── */
+const TODAY = new Date().toISOString().slice(0, 10);
+const PUZZLE =
+  PUZZLES[TODAY]?.grid ?? PUZZLES[Object.keys(PUZZLES).sort().at(-1)].grid;
 
 const TOTAL_GUESSES = 15;
 const RARITY_LABELS = ["", "Popular pick", "Solid find", "Rare gem ✦"];
@@ -573,13 +552,13 @@ export default function TheGrid({ onBack }) {
   const [usedMovies, setUsedMovies] = useState(new Set());
   const [gameOver, setGameOver] = useState(false);
   const [lastDot, setLastDot] = useState(false);
-  const [showHelp, setShowHelp] = useState(true);
+  const [showHelp, setShowHelp] = useState(false);
   const [copied, setCopied] = useState(false);
   const [seconds, setSeconds] = useState(0);
   const inputRef = useRef(null);
 
   useEffect(() => {
-    if (gameOver || showHelp) return;
+    if (gameOver) return;
     const id = setInterval(() => setSeconds(s => s + 1), 1000);
     return () => clearInterval(id);
   }, [gameOver, showHelp]);

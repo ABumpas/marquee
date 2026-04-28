@@ -1,8 +1,10 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import PUZZLES from "../puzzles.js";
 
-/* ── PUZZLE DATA ── */
-const ACTOR_A = "Tom Hanks";
-const ACTOR_B = "Scarlett Johansson";
+/* ── PUZZLE LOOKUP ── */
+const TODAY = new Date().toISOString().slice(0, 10);
+const { actorA: ACTOR_A, actorB: ACTOR_B } =
+  PUZZLES[TODAY]?.chain ?? PUZZLES[Object.keys(PUZZLES).sort().at(-1)].chain;
 
 const DB = {
   "Tom Hanks":          ["Forrest Gump","Cast Away","Saving Private Ryan","The Green Mile","Philadelphia","Catch Me If You Can","The Terminal","Charlie Wilson's War","Road to Perdition","Captain Phillips"],
@@ -609,12 +611,12 @@ export default function MovieChain({ onBack }) {
   const [timerFlash, setTimerFlash] = useState(false);
   const [toast, setToast] = useState("");
   const [won, setWon] = useState(false);
-  const [showHelp, setShowHelp] = useState(true);
+  const [showHelp, setShowHelp] = useState(false);
   const [copied, setCopied] = useState(false);
   const inputRef = useRef(null);
 
   useEffect(() => {
-    if (won || showHelp) return;
+    if (won) return;
     const id = setInterval(() => setSeconds(s => s + 1), 1000);
     return () => clearInterval(id);
   }, [won, showHelp]);
