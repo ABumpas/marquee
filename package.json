@@ -9,7 +9,8 @@
   },
   "scripts": {
     "start": "react-scripts start",
-    "build": "react-scripts build"
+    "build": "react-scripts build",
+    "validate": "node src/tools/validatePuzzles.js"
   },
   "browserslist": {
     "production": [">0.2%", "not dead", "not op_mini all"],
