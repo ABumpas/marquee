@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import PUZZLES from "../puzzles.js";
+import { searchMovies, verifyActorInMovie, verifyCategory } from "../services/tmdb.js";
 
 /* ── PUZZLE LOOKUP ── */
 const TODAY = new Date().toISOString().slice(0, 10);
@@ -9,14 +10,7 @@ const PUZZLE =
 const TOTAL_GUESSES = 15;
 const RARITY_LABELS = ["", "Popular pick", "Solid find", "Rare gem ✦"];
 
-const ALL_MOVIES = [
-  "Cast Away","Captain Phillips","The Terminal","Charlie Wilson's War",
-  "Sully","Philadelphia","Saving Private Ryan",
-  "The Aviator","The Beach","Titanic","Inception","The Revenant","Catch Me If You Can","The Wolf of Wall Street",
-  "Out of Africa","Mamma Mia!","The Iron Lady","Adaptation","The Hours","Florence Foster Jenkins",
-  "Silkwood","Julie & Julia","Doubt","Carol","Kramer vs. Kramer",
-  "Road to Perdition","Romeo + Juliet","J. Edgar","Interstellar",
-];
+const verifyCache = new Map();
 
 function fmtTime(s) {
   return `${String(Math.floor(s/60)).padStart(2,"0")}:${String(s%60).padStart(2,"0")}`;
@@ -339,6 +333,12 @@ const STYLE = `
   .tg-option:hover, .tg-option.focused { background: var(--border); }
   .tg-option.used { opacity: 0.4; pointer-events: none; }
 
+  .tg-option-year {
+    font-size: 11px;
+    color: var(--text2);
+    margin-left: 4px;
+  }
+
   .tg-used-tag {
     font-size: 9px; letter-spacing: 0.5px;
     color: var(--text2);
@@ -552,6 +552,8 @@ export default function TheGrid({ onBack }) {
   const [usedMovies, setUsedMovies] = useState(new Set());
   const [gameOver, setGameOver] = useState(false);
   const [lastDot, setLastDot] = useState(false);
+  const [checking, setChecking] = useState(false);
+  const [searchResults, setSearchResults] = useState([]);
   const [showHelp, setShowHelp] = useState(false);
   const [copied, setCopied] = useState(false);
   const [seconds, setSeconds] = useState(0);
@@ -568,15 +570,26 @@ export default function TheGrid({ onBack }) {
       inputRef.current.focus();
       setQuery("");
       setFocusedIdx(0);
+      setSearchResults([]);
     }
   }, [activeCell]);
 
+  useEffect(() => {
+    if (!query.trim()) { setSearchResults([]); return; }
+    const id = setTimeout(async () => {
+      console.log("TMDB key:", process.env.REACT_APP_TMDB_KEY);
+      console.log("Searching for:", query);
+      const hits = await searchMovies(query);
+      console.log("Results:", hits);
+      setSearchResults(hits);
+      setFocusedIdx(0);
+    }, 300);
+    return () => clearTimeout(id);
+  }, [query]);
+
   const correctCount = grid.flat().filter(c => c?.status === "correct").length;
 
-  const results = ALL_MOVIES
-    .filter(m => m.toLowerCase().includes(query.toLowerCase()) && query.length > 0)
-    .slice(0, 8)
-    .map(m => ({ name: m, used: usedMovies.has(m.toLowerCase()) }));
+  const results = searchResults.map(r => ({ ...r, used: usedMovies.has(r.title.toLowerCase()) }));
 
   function handleCellClick(row, col) {
     if (grid[row][col]?.status === "correct") return;
@@ -586,19 +599,38 @@ export default function TheGrid({ onBack }) {
     );
   }
 
-  const handleGuess = useCallback((movieName) => {
-    if (!activeCell) return;
+  const handleGuess = useCallback(async (movieName) => {
+    if (!activeCell || checking) return;
     const { row, col } = activeCell;
     const key = movieName.toLowerCase();
     if (usedMovies.has(key)) return;
 
-    const isCorrect = PUZZLE.valid[row][col].has(key);
-    const rarity = PUZZLE.rarityMap[key] || 1;
+    const actor = PUZZLE.actors[row];
+    const category = PUZZLE.categories[col];
+    const cacheKey = `${actor}|${movieName}`;
 
+    setChecking(true);
+    let verification;
+    if (verifyCache.has(cacheKey)) {
+      verification = verifyCache.get(cacheKey);
+    } else {
+      verification = await verifyActorInMovie(actor, movieName);
+      if (verification.valid) verifyCache.set(cacheKey, verification);
+    }
+
+    let isCorrect = false;
+    if (verification.valid) {
+      const catResult = await verifyCategory(verification.tmdbId, category.label);
+      isCorrect = catResult.valid;
+    }
+    setChecking(false);
+
+    const canonicalTitle = verification.movieTitle || movieName;
+    const rarity = PUZZLE.rarityMap[key] || 1;
     const newGrid = grid.map(r => [...r]);
 
     if (isCorrect) {
-      newGrid[row][col] = { movie: movieName, status: "correct", rarity };
+      newGrid[row][col] = { movie: canonicalTitle, status: "correct", rarity };
       setGrid(newGrid);
       setUsedMovies(prev => new Set([...prev, key]));
       setActiveCell(null);
@@ -619,12 +651,16 @@ export default function TheGrid({ onBack }) {
     }
     setQuery("");
     setFocusedIdx(0);
-  }, [activeCell, grid, guessesLeft, usedMovies]);
+  }, [activeCell, checking, grid, guessesLeft, usedMovies]);
 
   function handleKey(e) {
     if (e.key === "ArrowDown") { e.preventDefault(); setFocusedIdx(i => Math.min(i+1, results.length-1)); }
     else if (e.key === "ArrowUp") { e.preventDefault(); setFocusedIdx(i => Math.max(i-1, 0)); }
-    else if (e.key === "Enter" && results[focusedIdx] && !results[focusedIdx].used) handleGuess(results[focusedIdx].name);
+    else if (e.key === "Enter") {
+      const sel = results[focusedIdx];
+      if (sel && !sel.used) handleGuess(sel.title);
+      else if (query.trim()) handleGuess(query.trim());
+    }
   }
 
   function copyResult() {
@@ -717,20 +753,21 @@ export default function TheGrid({ onBack }) {
             <input
               ref={inputRef}
               className="tg-search-input"
-              placeholder="Search movies…"
+              placeholder={checking ? "Checking…" : "Search movies…"}
               value={query}
+              disabled={checking}
               onChange={e => { setQuery(e.target.value); setFocusedIdx(0); }}
               onKeyDown={handleKey}
             />
-            {results.length > 0 && (
+            {!checking && results.length > 0 && (
               <div className="tg-dropdown">
                 {results.map((r, i) => (
                   <div
-                    key={r.name}
+                    key={r.id}
                     className={`tg-option ${i === focusedIdx ? "focused" : ""} ${r.used ? "used" : ""}`}
-                    onClick={() => !r.used && handleGuess(r.name)}
+                    onClick={() => !r.used && handleGuess(r.title)}
                   >
-                    {r.name}
+                    <span>{r.title}{r.year && <span className="tg-option-year"> {r.year}</span>}</span>
                     {r.used && <span className="tg-used-tag">Used</span>}
                   </div>
                 ))}
